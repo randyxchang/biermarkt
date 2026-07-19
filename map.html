@@ -309,19 +309,19 @@
   const hits = dotG.selectAll("circle.hit").data(dots).join("circle")
     .attr("cx", d => d.xy[0]).attr("cy", d => d.xy[1])
     .attr("r", d => Math.max(rScale(d.n) + 6, 10)).attr("fill", "transparent")
-    .on("mousemove", (ev, d) =>
-      showTip(ev, `${d.iata} — ${d.city || d.name}`, `${d.name}<br>${d.n} flight legs`))
-    .on("mouseleave", hideTip);
+    .on("mousemove", (ev, d) => {
+      labels.attr("display", l => l === d ? null : "none");
+      showTip(ev, `${d.iata} — ${d.city || d.name}`, `${d.name}<br>${d.n} flight legs`);
+    })
+    .on("mouseleave", () => { labels.attr("display", "none"); hideTip(); });
 
-  // labels for every airport: IATA + leg count; fade in by rank as zoom deepens
+  // labels for every airport: IATA + leg count; only visible while hovered
   const labels = root.append("g").selectAll("text").data(dots).join("text")
     .attr("x", d => d.xy[0] + 8).attr("y", d => d.xy[1] - 6)
     .attr("fill", "var(--ink-2)").attr("font-size", 11)
     .attr("paint-order", "stroke").attr("stroke", "var(--page)").attr("stroke-width", 3);
   labels.append("tspan").text(d => d.iata);
   labels.append("tspan").text(d => ` ${d.n}`).attr("fill", "var(--ink-muted)");
-
-  function labelCount(k) { return Math.ceil(10 * Math.pow(k, 1.8)); }
 
   // zoom & pan; marks divide by k so they stay crisp at screen scale
   let k = 1;
@@ -337,17 +337,15 @@
       halos.attr("r", d => (rScale(d.n) + 3) / k);
       cores.attr("r", d => rScale(d.n) / k).attr("stroke-width", 1 / k);
       hits.attr("r", d => Math.max(rScale(d.n) + 6, 10) / k);
-      const show = labelCount(k);
       labels
         .attr("font-size", 11 / k)
         .attr("x", d => d.xy[0] + 8 / k).attr("y", d => d.xy[1] - 6 / k)
-        .attr("stroke-width", 3 / k)
-        .attr("display", (d, i) => i < show ? null : "none");
+        .attr("stroke-width", 3 / k);
       countryPaths.attr("stroke-width", 0.5 / k);
     });
   const countryPaths = root.selectAll(".country");
   svg.call(zoom).on("dblclick.zoom", null);
-  labels.attr("display", (d, i) => i < labelCount(1) ? null : "none");
+  labels.attr("display", "none");
 
   function showTip(ev, title, body) {
     tooltip.style("opacity", 1)
