@@ -7,15 +7,27 @@
 <style>
   :root {
     color-scheme: dark;
-    --page: #10131a;
-    --land: #1c2230;
-    --land-stroke: #2a3244;
-    --graticule: #1a1f2b;
-    --ink: #f2f3f5;
-    --ink-2: #b8bdc9;
-    --ink-muted: #7d8494;
-    --hairline: rgba(255,255,255,0.08);
-    --tile: rgba(255,255,255,0.03);
+    --page: #000;
+    --land: #000;
+    --land-stroke: rgba(255,255,255,0.35);
+    --graticule: rgba(255,255,255,0.08);
+    --ink: #fff;
+    --ink-2: rgba(255,255,255,0.75);
+    --ink-muted: rgba(255,255,255,0.52);
+    --hairline: rgba(255,255,255,0.18);
+    --tile: #000;
+  }
+  :root[data-theme="light"] {
+    color-scheme: light;
+    --page: #fff;
+    --land: #fff;
+    --land-stroke: rgba(0,0,0,0.35);
+    --graticule: rgba(0,0,0,0.08);
+    --ink: #000;
+    --ink-2: rgba(0,0,0,0.75);
+    --ink-muted: rgba(0,0,0,0.52);
+    --hairline: rgba(0,0,0,0.18);
+    --tile: #fff;
   }
   * { box-sizing: border-box; }
   html, body { margin: 0; padding: 0; background: var(--page); color: var(--ink); }
@@ -57,7 +69,22 @@
   }
   .chip .n { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
   .chip.off { opacity: 0.35; }
-  .chip:hover { border-color: rgba(255,255,255,0.25); }
+  .chip:hover { border-color: var(--ink); }
+  #theme-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    padding: 0.4rem 0.7rem;
+    border: 1px solid var(--hairline);
+    border-radius: 999px;
+    background: var(--page);
+    color: var(--ink);
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+  }
+  #theme-toggle:hover { border-color: var(--ink); }
+  #theme-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
   #map-wrap { width: min(1200px, 100%); padding: 0 0.5rem; position: relative; }
   svg { width: 100%; height: auto; display: block; cursor: grab; }
   svg:active { cursor: grabbing; }
@@ -91,8 +118,8 @@
   #tooltip {
     position: fixed;
     pointer-events: none;
-    background: #1b2130;
-    border: 1px solid rgba(255,255,255,0.14);
+    background: var(--page);
+    border: 1px solid var(--hairline);
     border-radius: 8px;
     padding: 0.5rem 0.7rem;
     font-size: 0.8rem;
@@ -101,18 +128,21 @@
     opacity: 0;
     transition: opacity 0.12s;
     z-index: 10;
-    box-shadow: 0 6px 24px rgba(0,0,0,0.5);
+    box-shadow: none;
   }
   #tooltip .t { color: var(--ink); font-weight: 600; margin-bottom: 0.15rem; }
-  footer {
-    color: var(--ink-muted);
-    font-size: 0.75rem;
-    padding-bottom: 1.6rem;
-    letter-spacing: 0.06em;
-  }
 </style>
+<script>
+  try {
+    document.documentElement.dataset.theme =
+      localStorage.getItem("biermarkt-theme") === "light" ? "light" : "dark";
+  } catch (_) {
+    document.documentElement.dataset.theme = "dark";
+  }
+</script>
 </head>
 <body>
+<button id="theme-toggle" type="button" aria-label="Switch to light mode">light</button>
 <header>
   <h1>biermarkt</h1>
 </header>
@@ -120,12 +150,24 @@
 <div id="map-wrap"><svg id="map"></svg></div>
 <div id="stats"></div>
 <div id="tooltip"></div>
-<footer>drawn from flighty exports</footer>
-
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
 <script>
 (async function () {
+  const themeToggle = document.querySelector("#theme-toggle");
+  function syncThemeToggle() {
+    const dark = document.documentElement.dataset.theme === "dark";
+    themeToggle.textContent = dark ? "light" : "dark";
+    themeToggle.setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} mode`);
+  }
+  themeToggle.addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("biermarkt-theme", next); } catch (_) {}
+    syncThemeToggle();
+  });
+  syncThemeToggle();
+
   const [world, data] = await Promise.all([
     fetch("assets/countries-110m.json").then(r => r.json()),
     fetch("assets/flights.json").then(r => r.json()),
@@ -139,7 +181,7 @@
   const tooltip = d3.select("#tooltip");
 
   root.append("path").attr("d", path({ type: "Sphere" }))
-    .attr("fill", "#0d1017").attr("stroke", "var(--hairline)");
+    .attr("fill", "var(--page)").attr("stroke", "var(--hairline)");
   root.append("path").attr("d", path(d3.geoGraticule10()))
     .attr("fill", "none").attr("stroke", "var(--graticule)").attr("stroke-width", 0.5);
   root.append("g").selectAll("path")
@@ -169,13 +211,13 @@
 
   const glowPaths = glow.selectAll("path").data(arcs).join("path")
     .attr("d", d => path(d.geo)).attr("fill", "none")
-    .attr("stroke", d => person(d.p).color)
+    .attr("stroke", "var(--ink)")
     .attr("stroke-width", 4.5).attr("stroke-linecap", "round")
     .attr("opacity", 0.16).attr("class", d => `arc p${d.p}`);
 
   const corePaths = core.selectAll("path").data(arcs).join("path")
     .attr("d", d => path(d.geo)).attr("fill", "none")
-    .attr("stroke", d => person(d.p).color)
+    .attr("stroke", "var(--ink)")
     .attr("stroke-width", 1.4).attr("stroke-linecap", "round")
     .attr("opacity", 0.85).attr("class", d => `arc p${d.p}`);
 
@@ -218,10 +260,10 @@
   const dotG = root.append("g");
   const halos = dotG.selectAll("circle.halo").data(dots).join("circle")
     .attr("cx", d => d.xy[0]).attr("cy", d => d.xy[1])
-    .attr("r", d => rScale(d.n) + 3).attr("fill", "#ffffff").attr("opacity", 0.06);
+    .attr("r", d => rScale(d.n) + 3).attr("fill", "var(--ink)").attr("opacity", 0.06);
   const cores = dotG.selectAll("circle.core").data(dots).join("circle")
     .attr("cx", d => d.xy[0]).attr("cy", d => d.xy[1])
-    .attr("r", d => rScale(d.n)).attr("fill", "#e8ecf4")
+    .attr("r", d => rScale(d.n)).attr("fill", "var(--ink)")
     .attr("stroke", "var(--page)").attr("stroke-width", 1);
   const hits = dotG.selectAll("circle.hit").data(dots).join("circle")
     .attr("cx", d => d.xy[0]).attr("cy", d => d.xy[1])
