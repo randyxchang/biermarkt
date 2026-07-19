@@ -378,7 +378,7 @@
   let acc = 0;
   (function autoScroll() {
     if (!stripPaused && !reducedMotion) {
-      acc += stripHover ? 0.12 : 0.5;
+      acc += stripHover ? 0.18 : 0.75;
       if (acc >= 1) {
         strip.scrollLeft += Math.floor(acc);
         acc -= Math.floor(acc);
