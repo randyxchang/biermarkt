@@ -200,13 +200,25 @@
 
   const W = 1200, H = 620;
   const svg = d3.select("#map").attr("viewBox", `0 0 ${W} ${H}`);
-  const root = svg.append("g");
   const projection = d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
   const path = d3.geoPath(projection);
   const tooltip = d3.select("#tooltip");
+  const spherePath = path({ type: "Sphere" });
 
-  root.append("path").attr("d", path({ type: "Sphere" }))
-    .attr("fill", "var(--page)").attr("stroke", "var(--hairline)");
+  // The globe is a fixed viewport: zoomed content moves behind this clip,
+  // while the silhouette and its outline stay anchored in place.
+  svg.append("defs").append("clipPath")
+    .attr("id", "globe-clip").attr("clipPathUnits", "userSpaceOnUse")
+    .append("path").attr("d", spherePath);
+  svg.append("path").attr("d", spherePath)
+    .attr("fill", "var(--page)").attr("class", "globe-background");
+  const viewport = svg.append("g").attr("clip-path", "url(#globe-clip)");
+  const root = viewport.append("g");
+  svg.append("path").attr("d", spherePath)
+    .attr("fill", "none").attr("stroke", "var(--hairline)")
+    .attr("stroke-width", 1).attr("pointer-events", "none")
+    .attr("class", "globe-outline");
+
   root.append("path").attr("d", path(d3.geoGraticule10()))
     .attr("fill", "none").attr("stroke", "var(--graticule)").attr("stroke-width", 0.5);
   root.append("g").selectAll("path")
