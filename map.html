@@ -75,18 +75,21 @@
   .chip .n { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
   .chip:hover { border-color: var(--ink); }
   #theme-toggle {
-    position: absolute;
-    top: 1rem;
-    right: 1rem;
-    padding: 0.4rem 0.7rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-top: 0.6rem;
+    padding: 0.45rem;
     border: 1px solid var(--hairline);
     border-radius: 999px;
     background: var(--page);
     color: var(--ink);
-    font: inherit;
-    font-size: 0.75rem;
     cursor: pointer;
   }
+  #theme-toggle svg { width: 15px; height: 15px; display: block; }
+  #theme-toggle .moon { display: none; }
+  :root[data-theme="light"] #theme-toggle .sun { display: none; }
+  :root[data-theme="light"] #theme-toggle .moon { display: block; }
   #theme-toggle:hover { border-color: var(--ink); }
   #theme-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
   #map-wrap { width: min(1200px, 100%); padding: 0 0.5rem; position: relative; }
@@ -146,9 +149,12 @@
 </script>
 </head>
 <body>
-<button id="theme-toggle" type="button" aria-label="Switch to light mode">light</button>
 <header>
   <h1>biermarkt</h1>
+  <button id="theme-toggle" type="button" aria-label="Switch to light mode">
+    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  </button>
 </header>
 <div id="airports" aria-label="All airports"></div>
 <div id="map-wrap"><svg id="map"></svg></div>
@@ -161,7 +167,6 @@
   const themeToggle = document.querySelector("#theme-toggle");
   function syncThemeToggle() {
     const dark = document.documentElement.dataset.theme === "dark";
-    themeToggle.textContent = dark ? "light" : "dark";
     themeToggle.setAttribute("aria-label", `Switch to ${dark ? "light" : "dark"} mode`);
   }
   themeToggle.addEventListener("click", () => {
@@ -231,7 +236,9 @@
     d3.select(this)
       .attr("stroke-dasharray", `${len} ${len}`)
       .attr("stroke-dashoffset", len)
-      .transition().delay(300 + i * 12).duration(900).ease(d3.easeCubicOut)
+      .transition()
+      .delay(200 + i * (2800 / Math.max(1, arcs.length - 1)))
+      .duration(2000).ease(d3.easeCubicOut)
       .attr("stroke-dashoffset", 0)
       .on("end", function () { d3.select(this).attr("stroke-dasharray", null); });
   });
@@ -330,17 +337,30 @@
     svg.transition().duration(900).ease(d3.easeCubicInOut)
       .call(zoom.transform, d3.zoomIdentity.translate(tx, ty).scale(K));
   }
-  // chips duplicated once so the auto-scroll loops seamlessly
-  for (let pass = 0; pass < 2; pass++) {
-    for (const d of dots) {
-      const chip = document.createElement("div");
-      chip.className = "chip";
-      chip.innerHTML = `<span>${d.iata}</span><span class="n">${d.n}</span>`;
-      chip.title = d.city || d.name;
-      chip.addEventListener("click", () => flyTo(d));
-      strip.appendChild(chip);
+  // chips duplicated once so the auto-scroll loops seamlessly;
+  // each completed pass reshuffles the order
+  function shuffled(arr) {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+  function buildStrip(order) {
+    strip.textContent = "";
+    for (let pass = 0; pass < 2; pass++) {
+      for (const d of order) {
+        const chip = document.createElement("div");
+        chip.className = "chip";
+        chip.innerHTML = `<span>${d.iata}</span><span class="n">${d.n}</span>`;
+        chip.title = d.city || d.name;
+        chip.addEventListener("click", () => flyTo(d));
+        strip.appendChild(chip);
+      }
     }
   }
+  buildStrip(dots);
   let stripPaused = false;
   strip.addEventListener("pointerenter", () => { stripPaused = true; });
   strip.addEventListener("pointerleave", () => { stripPaused = false; });
@@ -354,7 +374,11 @@
       if (acc >= 1) {
         strip.scrollLeft += Math.floor(acc);
         acc -= Math.floor(acc);
-        if (strip.scrollLeft >= strip.scrollWidth / 2) strip.scrollLeft -= strip.scrollWidth / 2;
+        if (strip.scrollLeft >= strip.scrollWidth / 2) {
+          const overshoot = strip.scrollLeft - strip.scrollWidth / 2;
+          buildStrip(shuffled(dots));
+          strip.scrollLeft = overshoot;
+        }
       }
     }
     requestAnimationFrame(autoScroll);
