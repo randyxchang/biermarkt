@@ -126,6 +126,15 @@
     text-transform: uppercase;
     margin-top: 0.25rem;
   }
+  #contact {
+    color: var(--ink-muted);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-decoration: none;
+    margin-top: -1.4rem;
+    padding-bottom: 2.2rem;
+  }
+  #contact:hover { color: var(--ink-2); text-decoration: underline; }
   #tooltip {
     position: fixed;
     pointer-events: none;
@@ -163,6 +172,7 @@
 <div id="airports" aria-label="All airports"></div>
 <div id="map-wrap"><svg id="map"></svg></div>
 <div id="stats"></div>
+<a id="contact" href="mailto:bm@biermarkt.org">bm@biermarkt.org</a>
 <div id="tooltip"></div>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
