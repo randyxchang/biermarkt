@@ -82,7 +82,7 @@
   .chip:hover { border-color: var(--ink); }
   .header-controls {
     display: inline-grid;
-    grid-template-columns: 1fr 1fr;
+    grid-auto-flow: column;
     margin-top: 0.6rem;
     border: 1px solid var(--hairline);
     border-radius: 999px;
@@ -109,29 +109,8 @@
   :root[data-theme="light"] #theme-toggle .sun { display: none; }
   :root[data-theme="light"] #theme-toggle .moon { display: block; }
   #details-toggle { font-size: 0.95rem; font-weight: 700; }
-  #details-toggle[aria-pressed="false"]:not(:hover) { color: var(--ink-muted); }
   #map-wrap { width: min(1200px, 100%); padding: 0 0.5rem; position: relative; }
-  #projection-toggle {
-    position: absolute;
-    top: 0.75rem;
-    right: 1.25rem;
-    z-index: 2;
-    display: inline-grid;
-    width: 34px;
-    height: 34px;
-    place-items: center;
-    padding: 0;
-    border: 1px solid var(--hairline);
-    border-radius: 50%;
-    background: var(--page);
-    color: var(--ink);
-    cursor: pointer;
-    transition: right 0.2s ease, border-color 0.2s ease;
-  }
-  #map-wrap[data-projection="orthographic"] #projection-toggle { right: calc(25% + 1.25rem); }
-  #projection-toggle:hover { border-color: var(--ink); }
-  #projection-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
-  #projection-toggle svg { width: 17px; height: 17px; display: block; }
+  #projection-toggle svg { width: 16px; height: 16px; display: block; }
   #projection-toggle .map-icon { display: none; }
   #projection-toggle[data-projection="orthographic"] .globe-icon { display: none; }
   #projection-toggle[data-projection="orthographic"] .map-icon { display: block; }
@@ -206,24 +185,6 @@
   }
   :root[data-splash="done"] .splash-half.left { transform: translateX(-100%); }
   :root[data-splash="done"] .splash-half.right { transform: translateX(100%); }
-  .splash-hint {
-    position: absolute;
-    left: 50%;
-    bottom: 11%;
-    transform: translateX(-50%);
-    margin: 0;
-    color: var(--ink-muted);
-    font-family: Georgia, "Times New Roman", serif;
-    font-size: 0.68rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    white-space: nowrap;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.8s ease 1.1s;
-  }
-  :root[data-splash="open"] .splash-hint { opacity: 1; }
-  :root[data-splash="done"] .splash-hint { opacity: 0; transition: opacity 0.25s ease; }
   :root[data-splash="open"], :root[data-splash="open"] body { overflow: hidden; }
   @media (prefers-reduced-motion: reduce) {
     .splash-half { transition: none; }
@@ -271,7 +232,6 @@
 <div id="splash" role="button" tabindex="0" aria-label="Enter biermarkt">
   <div class="splash-half left"><span aria-hidden="true">B</span></div>
   <div class="splash-half right"><span aria-hidden="true">M</span></div>
-  <p class="splash-hint">click to enter</p>
 </div>
 <script>
   // Splash gate: resolves once the curtain parts, so the map's draw-in
@@ -300,14 +260,14 @@
       <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     </button>
     <button id="details-toggle" type="button" aria-label="Show airport codes and statistics" aria-pressed="false"><span aria-hidden="true">#</span></button>
+    <button id="projection-toggle" type="button" data-projection="orthographic" aria-label="Switch to flat map projection">
+      <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 2.5 4.5 5.5 4.5 9S15 18.5 12 21M12 3C9 5.5 7.5 8.5 7.5 12S9 18.5 12 21"/></svg>
+      <svg class="map-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></svg>
+    </button>
   </div>
 </header>
 <div id="airports" aria-label="All airports"></div>
 <div id="map-wrap" data-projection="orthographic">
-  <button id="projection-toggle" type="button" data-projection="orthographic" aria-label="Switch to flat map projection">
-    <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 2.5 4.5 5.5 4.5 9S15 18.5 12 21M12 3C9 5.5 7.5 8.5 7.5 12S9 18.5 12 21"/></svg>
-    <svg class="map-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></svg>
-  </button>
   <svg id="map"></svg>
 </div>
 <div id="stats"></div>
@@ -349,9 +309,23 @@
   });
   syncDetails();
 
-  // local time in each home city, ticking on the second — unlabelled by design
+  // local time in each home city, ticking on the second — unlabelled by design.
+  // Sorted west to east by current UTC offset, so the stack reads chronologically
+  // and stays correct when the zones cross DST on different weeks.
   const ZONES = ["America/New_York", "America/Chicago", "Asia/Dubai", "Europe/London"];
-  const clocks = ZONES.map(timeZone => {
+  function utcOffsetMinutes(timeZone, at) {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone, hourCycle: "h23",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    }).formatToParts(at).reduce((acc, p) => (acc[p.type] = p.value, acc), {});
+    const asUTC = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second);
+    return (asUTC - Math.floor(at.getTime() / 1000) * 1000) / 60000;
+  }
+  const startOfDay = new Date();
+  const orderedZones = [...ZONES].sort(
+    (a, b) => utcOffsetMinutes(a, startOfDay) - utcOffsetMinutes(b, startOfDay));
+  const clocks = orderedZones.map(timeZone => {
     const row = document.createElement("div");
     row.className = "clock";
     const hm = document.createElement("span");
@@ -398,7 +372,8 @@
   const svg = d3.select("#map").attr("viewBox", `0 0 ${W} ${H}`);
   function createProjection(mode) {
     return mode === "orthographic"
-      ? d3.geoOrthographic().rotate([-15, -20, 0]).clipAngle(90).precision(0.25)
+      // opens over North America (~98°W, 38°N)
+      ? d3.geoOrthographic().rotate([98, -38, 0]).clipAngle(90).precision(0.25)
         .fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" })
       : d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
   }
@@ -473,8 +448,8 @@
     (window.splashReady || Promise.resolve()).then(() => {
       corePaths.each(function (d, i) {
         d3.select(this).transition()
-          .delay(200 + i * (2800 / Math.max(1, arcs.length - 1)))
-          .duration(2000).ease(d3.easeCubicOut)
+          .delay(400 + i * (7000 / Math.max(1, arcs.length - 1)))
+          .duration(4200).ease(d3.easeCubicOut)
           .attr("stroke-dashoffset", 0)
           .on("end", function () { d3.select(this).attr("stroke-dasharray", null); });
       });
@@ -587,6 +562,7 @@
     })
     .scaleExtent([1, 16])
     .translateExtent([[0, 0], [W, H]])
+    .on("start", () => stopGlide())
     .on("zoom", (event) => {
       currentZoomTransform = event.transform;
       k = event.transform.k;
@@ -594,17 +570,56 @@
       syncProjectionLayers(event.transform);
       scaleMarks();
     });
+  // Releasing a drag hands the globe its last velocity, which then bleeds off
+  // under friction — degrees per millisecond, so the glide is frame-rate independent.
+  let glideFrame = null;
+  let glideX = 0, glideY = 0, lastDragAt = 0;
+  function stopGlide() {
+    if (glideFrame !== null) cancelAnimationFrame(glideFrame);
+    glideFrame = null;
+    glideX = glideY = 0;
+  }
+  function rotateBy(dLambda, dPhi) {
+    const rotation = projection.rotate();
+    projection.rotate([
+      rotation[0] + dLambda,
+      Math.max(-90, Math.min(90, rotation[1] + dPhi)),
+      rotation[2],
+    ]);
+    updateProjectionGeometry();
+  }
   const spin = d3.drag()
     .filter(event => projectionMode === "orthographic" && (event.button == null || event.button === 0) && (!event.touches || event.touches.length < 2))
+    .on("start", () => {
+      stopGlide();
+      lastDragAt = performance.now();
+    })
     .on("drag", (event) => {
-      const rotation = projection.rotate();
+      const now = performance.now();
+      const dt = Math.max(1, now - lastDragAt);
+      lastDragAt = now;
       const sensitivity = 0.32 / Math.sqrt(k);
-      projection.rotate([
-        rotation[0] + event.dx * sensitivity,
-        Math.max(-90, Math.min(90, rotation[1] - event.dy * sensitivity)),
-        rotation[2],
-      ]);
-      updateProjectionGeometry();
+      const dLambda = event.dx * sensitivity;
+      const dPhi = -event.dy * sensitivity;
+      // blend with the previous sample so one jittery frame can't fling the globe
+      glideX = glideX * 0.4 + (dLambda / dt) * 0.6;
+      glideY = glideY * 0.4 + (dPhi / dt) * 0.6;
+      rotateBy(dLambda, dPhi);
+    })
+    .on("end", () => {
+      if (reduceMotion || Math.hypot(glideX, glideY) < 0.002) { stopGlide(); return; }
+      let last = performance.now();
+      glideFrame = requestAnimationFrame(function step(now) {
+        const dt = Math.min(50, now - last);
+        last = now;
+        const friction = Math.pow(0.94, dt / 16.667);
+        glideX *= friction;
+        glideY *= friction;
+        rotateBy(glideX * dt, glideY * dt);
+        glideFrame = Math.hypot(glideX, glideY) > 0.0004
+          ? requestAnimationFrame(step)
+          : null;
+      });
     });
   function syncProjectionToggle() {
     projectionToggle.dataset.projection = projectionMode;
@@ -613,6 +628,7 @@
     svg.classed("is-globe", projectionMode === "orthographic");
   }
   function setProjection(mode) {
+    stopGlide();
     projectionMode = mode;
     projection = createProjection(mode);
     svg.call(zoom.transform, d3.zoomIdentity);
@@ -630,6 +646,30 @@
   syncProjectionLayers();
   syncProjectionToggle();
 
+  // Idle spin: the globe turns westward on its own at half the airport
+  // strip's pace (0.75 px/frame × 0.32° per px of drag ≈ 14°/s, so 7.2°/s
+  // here — one revolution every ~50s). Any hand on the map stops it.
+  const SPIN_DEG_PER_SEC = 7.2;
+  let spinHeld = 0;              // >0 while dragging or flying
+  let spinHover = false;
+  mapWrap.addEventListener("pointerenter", () => { spinHover = true; });
+  mapWrap.addEventListener("pointerleave", () => { spinHover = false; });
+  spin.on("start.autospin", () => { spinHeld++; })
+      .on("end.autospin", () => { spinHeld--; });
+  (window.splashReady || Promise.resolve()).then(() => {
+    if (reduceMotion) return;
+    let last = null;
+    requestAnimationFrame(function tick(now) {
+      requestAnimationFrame(tick);
+      const dt = last == null ? 0 : Math.min((now - last) / 1000, 0.1);
+      last = now;
+      if (!dt || spinHeld > 0 || spinHover || projectionMode !== "orthographic") return;
+      const r = projection.rotate();
+      projection.rotate([r[0] + SPIN_DEG_PER_SEC * dt, r[1], r[2]]);
+      updateProjectionGeometry();
+    });
+  });
+
   function showTip(ev, title, body) {
     tooltip.style("opacity", 1)
       .html(`<div class="t">${title}</div>${body}`)
@@ -643,17 +683,20 @@
   const strip = document.getElementById("airports");
   function flyTo(d) {
     if (projectionMode === "orthographic") {
+      stopGlide();
       svg.call(zoom.transform, d3.zoomIdentity);
       const start = projection.rotate();
       let targetLongitude = -d.coord[0];
       while (targetLongitude - start[0] > 180) targetLongitude -= 360;
       while (targetLongitude - start[0] < -180) targetLongitude += 360;
       const interpolate = d3.interpolate(start, [targetLongitude, -d.coord[1], 0]);
+      spinHeld++;
       d3.transition("globe-fly").duration(reduceMotion ? 0 : 900).ease(d3.easeCubicInOut)
         .tween("rotate", () => t => {
           projection.rotate(interpolate(t));
           updateProjectionGeometry();
-        });
+        })
+        .on("end interrupt", () => { spinHeld--; });
       return;
     }
     const K = 5;
