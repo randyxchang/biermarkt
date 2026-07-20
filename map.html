@@ -678,10 +678,17 @@
     hideTip();
 
     const toFlat = mode === "natural";
+    const destination = createProjection(mode);
     const from = projection.rotate();
-    const to = createProjection(mode).rotate();
+    const to = destination.rotate();
     // turn to face the destination the short way round rather than unwinding
     const dLambda = ((to[0] - from[0] + 540) % 360) - 180;
+    // Scale and centre are carried straight from one end to the other. Fitting
+    // the blend to the frame each frame instead makes it swell by half again
+    // and shrink back, because the sphere outline it measures goes briefly
+    // degenerate while the clip angle opens.
+    const scale0 = projection.scale(), scale1 = destination.scale();
+    const shift0 = projection.translate(), shift1 = destination.translate();
 
     // The unroll reframes itself every frame, so any zoom has to come off —
     // eased out alongside it rather than snapped, which would read as a cut.
@@ -701,15 +708,20 @@
         from[1] + (to[1] - from[1]) * s,
         from[2] + (to[2] - from[2]) * s,
       ]);
-      // The clip opens ahead of the blend, so the far hemisphere peels out
-      // from behind the limb as the sphere flattens instead of popping in at
-      // the end. Held shut for the first stretch: until the blend carries
-      // those points clear, they would fold back over the near side.
-      const open = Math.max(0, Math.min(1, (alpha - 0.12) / 0.58));
-      const degrees = 90 + 90 * open;
-      morphClip = open >= 1 ? Math.PI : degrees * Math.PI / 180;
-      morph.clipAngle(open >= 1 ? null : degrees);
-      morph.fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
+      // d3 trades antimeridian cutting for the circle clip whenever a clip
+      // angle is set, so anything crossing the antimeridian streaks straight
+      // across the map. That leaves two usable states — the 90° cap, or no
+      // clip — and the swap has to happen at the blend where the antipode
+      // lands on the limb: before it the far side folds back over the near
+      // side, after it the far side is already clear, and at it the far
+      // hemisphere is squeezed onto the limb itself, so nothing jumps.
+      const capped = alpha < 0.424;
+      morphClip = capped ? Math.PI / 2 : Math.PI;
+      morph.clipAngle(capped ? 90 : null);
+      morph.scale(scale0 + (scale1 - scale0) * s).translate([
+        shift0[0] + (shift1[0] - shift0[0]) * s,
+        shift0[1] + (shift1[1] - shift0[1]) * s,
+      ]);
 
       const zt = d3.zoomIdentity
         .translate(z0.x * (1 - s), z0.y * (1 - s))
