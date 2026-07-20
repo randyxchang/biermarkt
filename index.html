@@ -80,26 +80,66 @@
   }
   .chip .n { color: var(--ink-muted); font-variant-numeric: tabular-nums; }
   .chip:hover { border-color: var(--ink); }
-  #theme-toggle {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+  .header-controls {
+    display: inline-grid;
+    grid-template-columns: 1fr 1fr;
     margin-top: 0.6rem;
-    padding: 0.45rem;
     border: 1px solid var(--hairline);
     border-radius: 999px;
+    overflow: hidden;
     background: var(--page);
+  }
+  .header-controls button {
+    display: inline-grid;
+    width: 38px;
+    height: 30px;
+    place-items: center;
+    padding: 0;
+    border: 0;
     color: var(--ink);
+    background: var(--page);
+    font: inherit;
     cursor: pointer;
   }
+  .header-controls button + button { border-left: 1px solid var(--hairline); }
+  .header-controls button:hover { background: var(--ink); color: var(--page); }
+  .header-controls button:focus-visible { outline: 2px solid var(--ink); outline-offset: -3px; }
   #theme-toggle svg { width: 15px; height: 15px; display: block; }
   #theme-toggle .moon { display: none; }
   :root[data-theme="light"] #theme-toggle .sun { display: none; }
   :root[data-theme="light"] #theme-toggle .moon { display: block; }
-  #theme-toggle:hover { border-color: var(--ink); }
-  #theme-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  #details-toggle { font-size: 0.95rem; font-weight: 700; }
+  #details-toggle[aria-pressed="false"]:not(:hover) { color: var(--ink-muted); }
   #map-wrap { width: min(1200px, 100%); padding: 0 0.5rem; position: relative; }
-  svg { width: 100%; height: auto; display: block; cursor: grab; }
+  #projection-toggle {
+    position: absolute;
+    top: 0.75rem;
+    right: 1.25rem;
+    z-index: 2;
+    display: inline-grid;
+    width: 34px;
+    height: 34px;
+    place-items: center;
+    padding: 0;
+    border: 1px solid var(--hairline);
+    border-radius: 50%;
+    background: var(--page);
+    color: var(--ink);
+    cursor: pointer;
+    transition: right 0.2s ease, border-color 0.2s ease;
+  }
+  #map-wrap[data-projection="orthographic"] #projection-toggle { right: calc(25% + 1.25rem); }
+  #projection-toggle:hover { border-color: var(--ink); }
+  #projection-toggle:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; }
+  #projection-toggle svg { width: 17px; height: 17px; display: block; }
+  #projection-toggle .map-icon { display: none; }
+  #projection-toggle[data-projection="orthographic"] .globe-icon { display: none; }
+  #projection-toggle[data-projection="orthographic"] .map-icon { display: block; }
+  [hidden] { display: none !important; }
+  :root[data-details="hidden"] #airports,
+  :root[data-details="hidden"] #stats { display: none !important; }
+  :root[data-details="hidden"] #contact { margin-top: 1rem; }
+  svg { width: 100%; height: auto; display: block; cursor: grab; touch-action: pan-y pinch-zoom; }
   svg:active { cursor: grabbing; }
   #stats {
     display: flex;
@@ -129,13 +169,71 @@
     text-transform: uppercase;
     margin-top: 0.25rem;
   }
+  #clocks {
+    display: grid;
+    justify-items: center;
+    gap: 0.12rem;
+    margin-top: -1.4rem;
+    padding-bottom: 1.6rem;
+  }
+  :root[data-details="hidden"] #clocks { margin-top: 1.4rem; }
+  .clock {
+    color: var(--ink-2);
+    font-size: 1rem;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.1em;
+  }
+  .clock .s { color: var(--ink-muted); font-size: 0.82em; }
+  #splash { position: fixed; inset: 0; z-index: 50; cursor: pointer; }
+  .splash-half {
+    position: absolute;
+    top: 0;
+    width: 50%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    background: var(--page);
+    transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+  }
+  .splash-half.left { left: 0; justify-content: flex-end; }
+  .splash-half.right { right: 0; justify-content: flex-start; }
+  .splash-half span {
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: clamp(4rem, 17vw, 11rem);
+    line-height: 1;
+    color: var(--ink);
+  }
+  :root[data-splash="done"] .splash-half.left { transform: translateX(-100%); }
+  :root[data-splash="done"] .splash-half.right { transform: translateX(100%); }
+  .splash-hint {
+    position: absolute;
+    left: 50%;
+    bottom: 11%;
+    transform: translateX(-50%);
+    margin: 0;
+    color: var(--ink-muted);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: 0.68rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.8s ease 1.1s;
+  }
+  :root[data-splash="open"] .splash-hint { opacity: 1; }
+  :root[data-splash="done"] .splash-hint { opacity: 0; transition: opacity 0.25s ease; }
+  :root[data-splash="open"], :root[data-splash="open"] body { overflow: hidden; }
+  @media (prefers-reduced-motion: reduce) {
+    .splash-half { transition: none; }
+  }
   #contact {
     font-family: Georgia, "Times New Roman", serif;
     color: var(--ink-muted);
     font-size: 0.78rem;
     letter-spacing: 0.08em;
     text-decoration: none;
-    margin-top: -1.4rem;
     padding-bottom: 2.2rem;
   }
   #contact:hover { color: var(--ink-2); text-decoration: underline; }
@@ -160,22 +258,60 @@
   try {
     document.documentElement.dataset.theme =
       localStorage.getItem("biermarkt-theme") === "light" ? "light" : "dark";
+    document.documentElement.dataset.details =
+      localStorage.getItem("biermarkt-details") === "visible" ? "visible" : "hidden";
   } catch (_) {
     document.documentElement.dataset.theme = "dark";
+    document.documentElement.dataset.details = "hidden";
   }
+  document.documentElement.dataset.splash = "open";
 </script>
 </head>
 <body>
+<div id="splash" role="button" tabindex="0" aria-label="Enter biermarkt">
+  <div class="splash-half left"><span aria-hidden="true">B</span></div>
+  <div class="splash-half right"><span aria-hidden="true">M</span></div>
+  <p class="splash-hint">click to enter</p>
+</div>
+<script>
+  // Splash gate: resolves once the curtain parts, so the map's draw-in
+  // animation plays for the visitor instead of behind the splash.
+  (function () {
+    const splash = document.getElementById("splash");
+    let release;
+    window.splashReady = new Promise(resolve => { release = resolve; });
+    const slow = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    function enter() {
+      if (document.documentElement.dataset.splash === "done") return;
+      document.documentElement.dataset.splash = "done";
+      release();
+      setTimeout(() => { splash.hidden = true; }, slow ? 950 : 0);
+    }
+    splash.addEventListener("click", enter);
+    window.addEventListener("keydown", enter, { once: true });
+    splash.focus();
+  })();
+</script>
 <header>
   <h1>biermarkt</h1>
-  <button id="theme-toggle" type="button" aria-label="Switch to light mode">
-    <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
-    <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
-  </button>
+  <div class="header-controls" role="group" aria-label="Display controls">
+    <button id="theme-toggle" type="button" aria-label="Switch to light mode">
+      <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+    <button id="details-toggle" type="button" aria-label="Show airport codes and statistics" aria-pressed="false"><span aria-hidden="true">#</span></button>
+  </div>
 </header>
 <div id="airports" aria-label="All airports"></div>
-<div id="map-wrap"><svg id="map"></svg></div>
+<div id="map-wrap" data-projection="orthographic">
+  <button id="projection-toggle" type="button" data-projection="orthographic" aria-label="Switch to flat map projection">
+    <svg class="globe-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 2.5 4.5 5.5 4.5 9S15 18.5 12 21M12 3C9 5.5 7.5 8.5 7.5 12S9 18.5 12 21"/></svg>
+    <svg class="map-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3V6Z"/><path d="M9 3v15M15 6v15"/></svg>
+  </button>
+  <svg id="map"></svg>
+</div>
 <div id="stats"></div>
+<section id="clocks" aria-label="Local times"></section>
 <a id="contact" href="mailto:bm@biermarkt.org">bm@biermarkt.org</a>
 <div id="tooltip"></div>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
@@ -196,6 +332,63 @@
   });
   syncThemeToggle();
 
+  const detailsToggle = document.querySelector("#details-toggle");
+  const detailsTargets = [document.querySelector("#airports"), document.querySelector("#stats")];
+  let detailsVisible = false;
+  try { detailsVisible = localStorage.getItem("biermarkt-details") === "visible"; } catch (_) {}
+  function syncDetails() {
+    detailsTargets.forEach(element => { element.hidden = !detailsVisible; });
+    document.documentElement.dataset.details = detailsVisible ? "visible" : "hidden";
+    detailsToggle.setAttribute("aria-pressed", String(detailsVisible));
+    detailsToggle.setAttribute("aria-label", `${detailsVisible ? "Hide" : "Show"} airport codes and statistics`);
+  }
+  detailsToggle.addEventListener("click", () => {
+    detailsVisible = !detailsVisible;
+    try { localStorage.setItem("biermarkt-details", detailsVisible ? "visible" : "hidden"); } catch (_) {}
+    syncDetails();
+  });
+  syncDetails();
+
+  // local time in each home city, ticking on the second — unlabelled by design
+  const ZONES = ["America/New_York", "America/Chicago", "Asia/Dubai", "Europe/London"];
+  const clocks = ZONES.map(timeZone => {
+    const row = document.createElement("div");
+    row.className = "clock";
+    const hm = document.createElement("span");
+    const sec = document.createElement("span");
+    sec.className = "s";
+    row.append(hm, sec);
+    document.querySelector("#clocks").append(row);
+    return {
+      hm, sec,
+      fmt: new Intl.DateTimeFormat("en-GB", {
+        timeZone, hourCycle: "h23",
+        hour: "2-digit", minute: "2-digit", second: "2-digit",
+      }),
+    };
+  });
+  function tickClocks() {
+    const now = new Date();
+    for (const c of clocks) {
+      const [h, m, s] = c.fmt.format(now).split(":");
+      c.hm.textContent = `${h}:${m}`;
+      c.sec.textContent = `:${s}`;
+    }
+  }
+  tickClocks();
+  // align the first tick to the next second boundary so all four flip together
+  setTimeout(() => {
+    tickClocks();
+    setInterval(tickClocks, 1000);
+  }, 1000 - (Date.now() % 1000));
+
+  const projectionToggle = document.querySelector("#projection-toggle");
+  const mapWrap = document.querySelector("#map-wrap");
+  let projectionMode = "orthographic";
+  try {
+    if (localStorage.getItem("biermarkt-projection") === "natural") projectionMode = "natural";
+  } catch (_) {}
+
   const [world, data] = await Promise.all([
     fetch("assets/countries-110m.json").then(r => r.json()),
     fetch("assets/flights.json").then(r => r.json()),
@@ -203,28 +396,35 @@
 
   const W = 1200, H = 620;
   const svg = d3.select("#map").attr("viewBox", `0 0 ${W} ${H}`);
-  const projection = d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
+  function createProjection(mode) {
+    return mode === "orthographic"
+      ? d3.geoOrthographic().rotate([-15, -20, 0]).clipAngle(90).precision(0.25)
+        .fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" })
+      : d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
+  }
+  let projection = createProjection(projectionMode);
   const path = d3.geoPath(projection);
   const tooltip = d3.select("#tooltip");
   const spherePath = path({ type: "Sphere" });
 
-  // The globe is a fixed viewport: zoomed content moves behind this clip,
-  // while the silhouette and its outline stay anchored in place.
-  svg.append("defs").append("clipPath")
+  // The flat map uses a fixed silhouette. In globe mode the sphere, its
+  // outline, and the mapped content all move together during zoom.
+  const clipPath = svg.append("defs").append("clipPath")
     .attr("id", "globe-clip").attr("clipPathUnits", "userSpaceOnUse")
     .append("path").attr("d", spherePath);
-  svg.append("path").attr("d", spherePath)
+  const globeBackground = svg.append("path").attr("d", spherePath)
     .attr("fill", "var(--page)").attr("class", "globe-background");
   const viewport = svg.append("g").attr("clip-path", "url(#globe-clip)");
   const root = viewport.append("g");
-  svg.append("path").attr("d", spherePath)
+  const globeOutline = svg.append("path").attr("d", spherePath)
     .attr("fill", "none").attr("stroke", "var(--hairline)")
     .attr("stroke-width", 1).attr("pointer-events", "none")
+    .attr("vector-effect", "non-scaling-stroke")
     .attr("class", "globe-outline");
 
-  root.append("path").attr("d", path(d3.geoGraticule10()))
+  const graticulePath = root.append("path").attr("d", path(d3.geoGraticule10()))
     .attr("fill", "none").attr("stroke", "var(--graticule)").attr("stroke-width", 0.5);
-  root.append("g").selectAll("path")
+  const countryPaths = root.append("g").selectAll("path")
     .data(topojson.feature(world, world.objects.countries).features)
     .join("path").attr("d", path)
     .attr("fill", "var(--land)").attr("stroke", "var(--land-stroke)")
@@ -261,18 +461,23 @@
     .attr("stroke-width", 1.4).attr("stroke-linecap", "round")
     .attr("opacity", 0.85).attr("class", d => `arc p${d.p}`);
 
-  // draw-in animation
+  // draw-in animation — arcs are hidden immediately, then drawn once the
+  // splash curtain parts, so the reveal isn't spent behind the splash
   if (!reduceMotion) {
-    corePaths.each(function (d, i) {
+    corePaths.each(function () {
       const len = this.getTotalLength();
       d3.select(this)
         .attr("stroke-dasharray", `${len} ${len}`)
-        .attr("stroke-dashoffset", len)
-        .transition()
-        .delay(200 + i * (2800 / Math.max(1, arcs.length - 1)))
-        .duration(2000).ease(d3.easeCubicOut)
-        .attr("stroke-dashoffset", 0)
-        .on("end", function () { d3.select(this).attr("stroke-dasharray", null); });
+        .attr("stroke-dashoffset", len);
+    });
+    (window.splashReady || Promise.resolve()).then(() => {
+      corePaths.each(function (d, i) {
+        d3.select(this).transition()
+          .delay(200 + i * (2800 / Math.max(1, arcs.length - 1)))
+          .duration(2000).ease(d3.easeCubicOut)
+          .attr("stroke-dashoffset", 0)
+          .on("end", function () { d3.select(this).attr("stroke-dasharray", null); });
+      });
     });
   }
 
@@ -298,7 +503,7 @@
   }
   const rScale = d3.scaleSqrt().domain([1, d3.max(Object.values(visits))]).range([2, 6.5]);
   const dots = Object.entries(data.airports).map(([iata, a]) =>
-    ({ iata, name: a[2], city: a[3], xy: projection([a[0], a[1]]), n: visits[iata] || 0 }))
+    ({ iata, name: a[2], city: a[3], coord: [a[0], a[1]], xy: projection([a[0], a[1]]), n: visits[iata] || 0 }))
     .sort((a, b) => b.n - a.n);
 
   const dotG = root.append("g");
@@ -326,29 +531,104 @@
   labels.append("tspan").text(d => d.iata);
   labels.append("tspan").text(d => ` ${d.n}`).attr("fill", "var(--ink-muted)");
 
-  // zoom & pan; marks divide by k so they stay crisp at screen scale
+  // The flat projection zooms behind a fixed mask. The globe behaves like a
+  // physical sphere: wheel/pinch scales its boundary, and drag spins it.
   let k = 1;
+  let currentZoomTransform = d3.zoomIdentity;
+  function isPointVisible(d) {
+    if (projectionMode !== "orthographic") return true;
+    const rotation = projection.rotate();
+    return d3.geoDistance(d.coord, [-rotation[0], -rotation[1]]) <= Math.PI / 2;
+  }
+  function updateProjectionGeometry() {
+    path.projection(projection);
+    const outline = path({ type: "Sphere" });
+    clipPath.attr("d", outline);
+    globeBackground.attr("d", outline);
+    globeOutline.attr("d", outline);
+    graticulePath.attr("d", path(d3.geoGraticule10()));
+    countryPaths.attr("d", path);
+    glowPaths.attr("d", d => path(d.geo));
+    corePaths.attr("d", d => path(d.geo));
+    hitPaths.attr("d", d => path(d.geo));
+    dots.forEach(d => { d.xy = projection(d.coord); });
+    const visibility = d => isPointVisible(d) ? null : "none";
+    halos.attr("cx", d => d.xy[0]).attr("cy", d => d.xy[1]).attr("display", visibility);
+    cores.attr("cx", d => d.xy[0]).attr("cy", d => d.xy[1]).attr("display", visibility);
+    hits.attr("cx", d => d.xy[0]).attr("cy", d => d.xy[1]).attr("display", visibility);
+    labels
+      .attr("x", d => d.xy[0] + 8 / k).attr("y", d => d.xy[1] - 6 / k)
+      .attr("display", "none");
+    hideTip();
+  }
+  function scaleMarks() {
+    glowPaths.attr("stroke-width", 4.5 / k);
+    corePaths.attr("stroke-width", 1.4 / k);
+    hitPaths.attr("stroke-width", 12 / k);
+    halos.attr("r", d => (rScale(d.n) + 3) / k);
+    cores.attr("r", d => rScale(d.n) / k).attr("stroke-width", 1 / k);
+    hits.attr("r", d => Math.max(rScale(d.n) + 6, 10) / k);
+    labels.attr("font-size", 11 / k).attr("stroke-width", 3 / k);
+    countryPaths.attr("stroke-width", 0.5 / k);
+  }
+  function syncProjectionLayers(transform = currentZoomTransform) {
+    const globeMode = projectionMode === "orthographic";
+    viewport.attr("clip-path", globeMode ? null : "url(#globe-clip)");
+    globeBackground.attr("transform", globeMode ? transform : null);
+    globeOutline.attr("transform", globeMode ? transform : null);
+  }
   const zoom = d3.zoom()
+    // wheel zooms only when it carries ctrlKey — that is a trackpad pinch or
+    // ctrl+wheel. A plain two-finger scroll falls through and scrolls the page.
+    .filter(event => {
+      if (event.type === "wheel") return event.ctrlKey;
+      if (event.touches) return event.touches.length > 1;
+      return projectionMode === "natural" && !event.button;
+    })
     .scaleExtent([1, 16])
     .translateExtent([[0, 0], [W, H]])
-    .on("zoom", (ev) => {
-      k = ev.transform.k;
-      root.attr("transform", ev.transform);
-      glowPaths.attr("stroke-width", 4.5 / k);
-      corePaths.attr("stroke-width", 1.4 / k);
-      hitPaths.attr("stroke-width", 12 / k);
-      halos.attr("r", d => (rScale(d.n) + 3) / k);
-      cores.attr("r", d => rScale(d.n) / k).attr("stroke-width", 1 / k);
-      hits.attr("r", d => Math.max(rScale(d.n) + 6, 10) / k);
-      labels
-        .attr("font-size", 11 / k)
-        .attr("x", d => d.xy[0] + 8 / k).attr("y", d => d.xy[1] - 6 / k)
-        .attr("stroke-width", 3 / k);
-      countryPaths.attr("stroke-width", 0.5 / k);
+    .on("zoom", (event) => {
+      currentZoomTransform = event.transform;
+      k = event.transform.k;
+      root.attr("transform", event.transform);
+      syncProjectionLayers(event.transform);
+      scaleMarks();
     });
-  const countryPaths = root.selectAll(".country");
-  svg.call(zoom).on("dblclick.zoom", null);
+  const spin = d3.drag()
+    .filter(event => projectionMode === "orthographic" && (event.button == null || event.button === 0) && (!event.touches || event.touches.length < 2))
+    .on("drag", (event) => {
+      const rotation = projection.rotate();
+      const sensitivity = 0.32 / Math.sqrt(k);
+      projection.rotate([
+        rotation[0] + event.dx * sensitivity,
+        Math.max(-90, Math.min(90, rotation[1] - event.dy * sensitivity)),
+        rotation[2],
+      ]);
+      updateProjectionGeometry();
+    });
+  function syncProjectionToggle() {
+    projectionToggle.dataset.projection = projectionMode;
+    mapWrap.dataset.projection = projectionMode;
+    projectionToggle.setAttribute("aria-label", `Switch to ${projectionMode === "natural" ? "globe" : "flat map"} projection`);
+    svg.classed("is-globe", projectionMode === "orthographic");
+  }
+  function setProjection(mode) {
+    projectionMode = mode;
+    projection = createProjection(mode);
+    svg.call(zoom.transform, d3.zoomIdentity);
+    updateProjectionGeometry();
+    scaleMarks();
+    syncProjectionToggle();
+    try { localStorage.setItem("biermarkt-projection", mode); } catch (_) {}
+  }
+  projectionToggle.addEventListener("click", () => {
+    setProjection(projectionMode === "natural" ? "orthographic" : "natural");
+  });
+  svg.call(zoom).on("dblclick.zoom", null).call(spin);
   labels.attr("display", "none");
+  updateProjectionGeometry();
+  syncProjectionLayers();
+  syncProjectionToggle();
 
   function showTip(ev, title, body) {
     tooltip.style("opacity", 1)
@@ -362,6 +642,20 @@
   // click flies the map to that airport
   const strip = document.getElementById("airports");
   function flyTo(d) {
+    if (projectionMode === "orthographic") {
+      svg.call(zoom.transform, d3.zoomIdentity);
+      const start = projection.rotate();
+      let targetLongitude = -d.coord[0];
+      while (targetLongitude - start[0] > 180) targetLongitude -= 360;
+      while (targetLongitude - start[0] < -180) targetLongitude += 360;
+      const interpolate = d3.interpolate(start, [targetLongitude, -d.coord[1], 0]);
+      d3.transition("globe-fly").duration(reduceMotion ? 0 : 900).ease(d3.easeCubicInOut)
+        .tween("rotate", () => t => {
+          projection.rotate(interpolate(t));
+          updateProjectionGeometry();
+        });
+      return;
+    }
     const K = 5;
     const tx = Math.min(0, Math.max(W - K * W, W / 2 - K * d.xy[0]));
     const ty = Math.min(0, Math.max(H - K * H, H / 2 - K * d.xy[1]));
