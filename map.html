@@ -170,8 +170,16 @@
     .clock:nth-child(1), .clock:nth-child(3) { left: 0.6rem; }
     .clock:nth-child(2), .clock:nth-child(4) { right: 0.6rem; }
   }
+  /* Splash: each half pulls away from the seam with a ripple running through
+     it, so it reads as cloth rather than a sliding slab. The half is sliced
+     into contiguous vertical strips; a sine wave travels along the strips,
+     pinned at the outer edge and loosest at the seam — a flag held by one
+     side. The strips never separate, so the letters shear rather than shred. */
+  @property --t { syntax: "<number>"; inherits: true; initial-value: 0; }
+  @property --amp { syntax: "<number>"; inherits: true; initial-value: 0; }
   #splash { position: fixed; inset: 0; z-index: 50; cursor: pointer; }
   .splash-half {
+    --n: 72;          /* strips per half */
     position: absolute;
     top: 0;
     width: 50%;
@@ -180,7 +188,8 @@
     align-items: center;
     overflow: hidden;
     background: var(--page);
-    transition: transform 0.9s cubic-bezier(0.76, 0, 0.24, 1);
+    transition: transform 1.35s cubic-bezier(0.6, 0.02, 0.18, 1);
+    will-change: transform;
   }
   .splash-half.left { left: 0; justify-content: flex-end; }
   .splash-half.right { right: 0; justify-content: flex-start; }
@@ -190,11 +199,64 @@
     line-height: 1;
     color: var(--ink);
   }
+  /* One strip. It overhangs the viewport top and bottom so the ripple can
+     never open a gap at the edges, and overlaps its neighbour by a pixel so
+     no hairline shows between them. .pane re-lays the whole half inside the
+     strip, shifted back into place, so the letter reads as one piece.
+     Each strip sits at the wave's height and tilts to the wave's slope, so
+     the strips meet edge to edge as a piecewise-linear sine rather than as a
+     staircase, and the letters shear the way print on cloth does. Offset is
+     amp·grip·sin, so the slope is amp·(grip'·sin + grip·sin') — JS supplies
+     the two per-strip gradients (--gs, --ws) since they depend on the
+     viewport width and on which way the half runs. */
+  .strip {
+    --wave: sin((var(--t) + var(--ph)) * 1turn);
+    --slope: cos((var(--t) + var(--ph)) * 1turn);
+    position: absolute;
+    top: -8vh;
+    height: 116vh;
+    width: calc(100% / var(--n) + 1px);
+    left: calc(var(--i) * 100% / var(--n));
+    overflow: hidden;
+    background: var(--page);
+    transform:
+      translateY(calc(var(--wave) * var(--amp) * var(--grip) * 1px))
+      skewY(atan(calc(var(--amp) * (var(--wave) * var(--gs) + var(--slope) * var(--ws)))));
+  }
+  .strip .pane {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: calc(var(--n) * 100%);
+    left: calc(var(--i) * -100%);
+    display: flex;
+    align-items: center;
+  }
+  .splash-half.left .strip .pane { justify-content: flex-end; }
+  .splash-half.right .strip .pane { justify-content: flex-start; }
+  /* light catching the folds: brightest where the cloth is rising fastest */
+  .strip::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: #000;
+    /* the 0 stands in where sin()/cos()/@property aren't supported: the calc
+       is dropped, the strips sit flat, and the halves just slide apart */
+    opacity: 0;
+    opacity: calc(max(0, var(--slope)) * var(--grip) * var(--amp) * 0.014);
+  }
+  :root[data-splash="done"] .strip {
+    animation: ripple 1.35s linear both, swell 1.35s ease-out both;
+  }
   :root[data-splash="done"] .splash-half.left { transform: translateX(-100%); }
   :root[data-splash="done"] .splash-half.right { transform: translateX(100%); }
+  @keyframes ripple { from { --t: 0; } to { --t: 1.9; } }
+  @keyframes swell { 0% { --amp: 0; } 35% { --amp: 15; } 100% { --amp: 26; } }
   :root[data-splash="open"], :root[data-splash="open"] body { overflow: hidden; }
   @media (prefers-reduced-motion: reduce) {
     .splash-half { transition: none; }
+    :root[data-splash="done"] .strip { animation: none; }
   }
   #contact {
     font-family: Georgia, "Times New Roman", serif;
@@ -249,11 +311,53 @@
     let release;
     window.splashReady = new Promise(resolve => { release = resolve; });
     const slow = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    // Slice each half into strips for the ripple. --ph phases the wave along
+    // the half (about 1.4 periods across it) and --grip is how loose the cloth
+    // is: pinned at the outer edge, freest at the seam where the letters sit.
+    const N = 72, WAVES = 1.4, TAPER = 1.4, TOTAL = 1420;
+    if (slow) {
+      const H = Math.max(1, window.innerWidth / 2);   // half width, px
+      splash.querySelectorAll(".splash-half").forEach(half => {
+        const isLeft = half.classList.contains("left");
+        const glyph = half.querySelector("span").textContent;
+        half.textContent = "";
+        for (let pos = 0; pos < N; pos++) {
+          // distance from the pinned outer edge: 0 at the edge, 1 at the seam.
+          // it grows rightward on the left half and leftward on the right one,
+          // hence `dir` — it flips the sign of every gradient below.
+          const dir = isLeft ? 1 : -1;
+          const slack = (isLeft ? pos : N - 1 - pos) / (N - 1);
+          const grip = Math.pow(slack, TAPER);
+          const strip = document.createElement("div");
+          strip.className = "strip";
+          strip.style.setProperty("--i", pos);
+          strip.style.setProperty("--ph", (slack * -WAVES).toFixed(4));
+          strip.style.setProperty("--grip", grip.toFixed(4));
+          // d(grip)/dx, and grip · d(sin argument)/dx — both per px
+          strip.style.setProperty("--gs", (TAPER * Math.pow(slack, TAPER - 1) * dir / H).toFixed(8));
+          strip.style.setProperty("--ws", (grip * -2 * Math.PI * WAVES * dir / H).toFixed(8));
+          // the letter only reaches a little way in from the seam; the outer
+          // strips are blank cloth and don't need a copy of it
+          if (slack > 0.55) {
+            const pane = document.createElement("div");
+            pane.className = "pane";
+            const span = document.createElement("span");
+            span.setAttribute("aria-hidden", "true");
+            span.textContent = glyph;
+            pane.appendChild(span);
+            strip.appendChild(pane);
+          }
+          half.appendChild(strip);
+        }
+      });
+    }
+
     function enter() {
       if (document.documentElement.dataset.splash === "done") return;
       document.documentElement.dataset.splash = "done";
       release();
-      setTimeout(() => { splash.hidden = true; }, slow ? 950 : 0);
+      setTimeout(() => { splash.hidden = true; }, slow ? TOTAL : 0);
     }
     splash.addEventListener("click", enter);
     window.addEventListener("keydown", enter, { once: true });
