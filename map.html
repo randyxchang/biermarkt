@@ -646,10 +646,13 @@
   syncProjectionLayers();
   syncProjectionToggle();
 
-  // Idle spin: the globe turns westward on its own at half the airport
-  // strip's pace (0.75 px/frame × 0.32° per px of drag ≈ 14°/s, so 7.2°/s
-  // here — one revolution every ~50s). Any hand on the map stops it.
-  const SPIN_DEG_PER_SEC = 7.2;
+  // Idle spin: the globe turns eastward on its own at 10°/s — one revolution
+  // every ~36s. A pointer over the map doesn't halt it outright; it coasts
+  // down over about a second, and winds back up more gently on the way out.
+  const SPIN_DEG_PER_SEC = 10;
+  const SPIN_STOP_SECONDS = 0.9;   // hover: time constant of the slow-down
+  const SPIN_START_SECONDS = 1.7;  // leave: slower still, so it creeps back in
+  let spinEase = 1;              // 0–1 multiplier on the idle rate
   let spinHeld = 0;              // >0 while dragging or flying
   let spinHover = false;
   mapWrap.addEventListener("pointerenter", () => { spinHover = true; });
@@ -663,9 +666,16 @@
       requestAnimationFrame(tick);
       const dt = last == null ? 0 : Math.min((now - last) / 1000, 0.1);
       last = now;
-      if (!dt || spinHeld > 0 || spinHover || projectionMode !== "orthographic") return;
+      if (!dt) return;
+      // a hand actually on the globe cuts the idle rate dead; the glide from
+      // that drag is what carries the motion instead
+      if (spinHeld > 0 || projectionMode !== "orthographic") { spinEase = 0; return; }
+      const target = spinHover ? 0 : 1;
+      const seconds = target < spinEase ? SPIN_STOP_SECONDS : SPIN_START_SECONDS;
+      spinEase += (target - spinEase) * Math.min(1, dt / seconds);
+      if (spinEase < 0.002) { spinEase = 0; return; }
       const r = projection.rotate();
-      projection.rotate([r[0] + SPIN_DEG_PER_SEC * dt, r[1], r[2]]);
+      projection.rotate([r[0] - SPIN_DEG_PER_SEC * spinEase * dt, r[1], r[2]]);
       updateProjectionGeometry();
     });
   });
