@@ -148,21 +148,28 @@
     text-transform: uppercase;
     margin-top: 0.25rem;
   }
-  #clocks {
-    display: grid;
-    justify-items: center;
-    gap: 0.12rem;
-    margin-top: -1.4rem;
-    padding-bottom: 1.6rem;
-  }
-  :root[data-details="hidden"] #clocks { margin-top: 1.4rem; }
+  /* the four times sit in the corners of the map frame, clear of the
+     projection itself; they never intercept a drag or a hover */
+  #clocks { position: absolute; inset: 0; pointer-events: none; z-index: 2; }
   .clock {
+    position: absolute;
     color: var(--ink-2);
-    font-size: 1rem;
+    font-size: 0.92rem;
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.1em;
   }
+  .clock:nth-child(1) { top: 0.4rem; left: 1.1rem; }
+  .clock:nth-child(2) { top: 0.4rem; right: 1.1rem; }
+  .clock:nth-child(3) { bottom: 0.4rem; left: 1.1rem; }
+  .clock:nth-child(4) { bottom: 0.4rem; right: 1.1rem; }
   .clock .s { color: var(--ink-muted); font-size: 0.82em; }
+  @media (max-width: 640px) {
+    .clock { font-size: 0.74rem; letter-spacing: 0.06em; }
+    .clock:nth-child(1), .clock:nth-child(2) { top: 0.2rem; }
+    .clock:nth-child(3), .clock:nth-child(4) { bottom: 0.2rem; }
+    .clock:nth-child(1), .clock:nth-child(3) { left: 0.6rem; }
+    .clock:nth-child(2), .clock:nth-child(4) { right: 0.6rem; }
+  }
   #splash { position: fixed; inset: 0; z-index: 50; cursor: pointer; }
   .splash-half {
     position: absolute;
@@ -195,6 +202,7 @@
     font-size: 0.78rem;
     letter-spacing: 0.08em;
     text-decoration: none;
+    margin-top: -1.4rem;
     padding-bottom: 2.2rem;
   }
   #contact:hover { color: var(--ink-2); text-decoration: underline; }
@@ -269,9 +277,9 @@
 <div id="airports" aria-label="All airports"></div>
 <div id="map-wrap" data-projection="orthographic">
   <svg id="map"></svg>
+  <section id="clocks" aria-label="Local times"></section>
 </div>
 <div id="stats"></div>
-<section id="clocks" aria-label="Local times"></section>
 <a id="contact" href="mailto:bm@biermarkt.org">bm@biermarkt.org</a>
 <div id="tooltip"></div>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
@@ -372,8 +380,8 @@
   const svg = d3.select("#map").attr("viewBox", `0 0 ${W} ${H}`);
   function createProjection(mode) {
     return mode === "orthographic"
-      // opens over North America (~98°W, 38°N)
-      ? d3.geoOrthographic().rotate([98, -38, 0]).clipAngle(90).precision(0.25)
+      // opens on the equator at ~98°W, so the spin runs level
+      ? d3.geoOrthographic().rotate([98, 0, 0]).clipAngle(90).precision(0.25)
         .fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" })
       : d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
   }
@@ -650,7 +658,7 @@
   // every ~36s. A pointer over the map doesn't halt it outright; it coasts
   // down over about a second, and winds back up more gently on the way out.
   const SPIN_DEG_PER_SEC = 10;
-  const SPIN_STOP_SECONDS = 0.9;   // hover: time constant of the slow-down
+  const SPIN_STOP_SECONDS = 1.8;   // hover: time constant of the slow-down
   const SPIN_START_SECONDS = 1.7;  // leave: slower still, so it creeps back in
   let spinEase = 1;              // 0–1 multiplier on the idle rate
   let spinHeld = 0;              // >0 while dragging or flying
