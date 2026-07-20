@@ -367,6 +367,7 @@
   const projectionToggle = document.querySelector("#projection-toggle");
   const mapWrap = document.querySelector("#map-wrap");
   let projectionMode = "orthographic";
+  let projectionTransitioning = false;
   try {
     if (localStorage.getItem("biermarkt-projection") === "natural") projectionMode = "natural";
   } catch (_) {}
@@ -395,11 +396,12 @@
   const clipPath = svg.append("defs").append("clipPath")
     .attr("id", "globe-clip").attr("clipPathUnits", "userSpaceOnUse")
     .append("path").attr("d", spherePath);
-  const globeBackground = svg.append("path").attr("d", spherePath)
+  const projectionStage = svg.append("g").attr("class", "projection-stage");
+  const globeBackground = projectionStage.append("path").attr("d", spherePath)
     .attr("fill", "var(--page)").attr("class", "globe-background");
-  const viewport = svg.append("g").attr("clip-path", "url(#globe-clip)");
+  const viewport = projectionStage.append("g").attr("clip-path", "url(#globe-clip)");
   const root = viewport.append("g");
-  const globeOutline = svg.append("path").attr("d", spherePath)
+  const globeOutline = projectionStage.append("path").attr("d", spherePath)
     .attr("fill", "none").attr("stroke", "var(--hairline)")
     .attr("stroke-width", 1).attr("pointer-events", "none")
     .attr("vector-effect", "non-scaling-stroke")
@@ -564,6 +566,7 @@
     // wheel zooms only when it carries ctrlKey — that is a trackpad pinch or
     // ctrl+wheel. A plain two-finger scroll falls through and scrolls the page.
     .filter(event => {
+      if (projectionTransitioning) return false;
       if (event.type === "wheel") return event.ctrlKey;
       if (event.touches) return event.touches.length > 1;
       return projectionMode === "natural" && !event.button;
@@ -597,7 +600,7 @@
     updateProjectionGeometry();
   }
   const spin = d3.drag()
-    .filter(event => projectionMode === "orthographic" && (event.button == null || event.button === 0) && (!event.touches || event.touches.length < 2))
+    .filter(event => !projectionTransitioning && projectionMode === "orthographic" && (event.button == null || event.button === 0) && (!event.touches || event.touches.length < 2))
     .on("start", () => {
       stopGlide();
       lastDragAt = performance.now();
@@ -635,8 +638,7 @@
     projectionToggle.setAttribute("aria-label", `Switch to ${projectionMode === "natural" ? "globe" : "flat map"} projection`);
     svg.classed("is-globe", projectionMode === "orthographic");
   }
-  function setProjection(mode) {
-    stopGlide();
+  function applyProjection(mode) {
     projectionMode = mode;
     projection = createProjection(mode);
     svg.call(zoom.transform, d3.zoomIdentity);
@@ -644,6 +646,42 @@
     scaleMarks();
     syncProjectionToggle();
     try { localStorage.setItem("biermarkt-projection", mode); } catch (_) {}
+  }
+  function setProjection(mode) {
+    if (mode === projectionMode || projectionTransitioning) return;
+    stopGlide();
+    if (reduceMotion) { applyProjection(mode); return; }
+
+    projectionTransitioning = true;
+    projectionToggle.disabled = true;
+    projectionToggle.setAttribute("aria-busy", "true");
+    projectionStage.style("pointer-events", "none");
+    hideTip();
+    const folded = `translate(${W / 2},${H / 2}) scale(0.025,0.94) translate(${-W / 2},${-H / 2})`;
+    const open = `translate(${W / 2},${H / 2}) scale(1,1) translate(${-W / 2},${-H / 2})`;
+
+    projectionStage.interrupt("projection-switch")
+      .transition("projection-switch")
+      .duration(260).ease(d3.easeCubicIn)
+      .attr("transform", folded)
+      .attr("opacity", 0.24)
+      .on("end", () => {
+        applyProjection(mode);
+        projectionStage
+          .attr("transform", folded)
+          .attr("opacity", 0.24)
+          .transition("projection-switch")
+          .duration(360).ease(d3.easeCubicOut)
+          .attr("transform", open)
+          .attr("opacity", 1)
+          .on("end", () => {
+            projectionStage.attr("transform", null).attr("opacity", null);
+            projectionStage.style("pointer-events", null);
+            projectionTransitioning = false;
+            projectionToggle.disabled = false;
+            projectionToggle.removeAttribute("aria-busy");
+          });
+      });
   }
   projectionToggle.addEventListener("click", () => {
     setProjection(projectionMode === "natural" ? "orthographic" : "natural");
@@ -677,7 +715,7 @@
       if (!dt) return;
       // a hand actually on the globe cuts the idle rate dead; the glide from
       // that drag is what carries the motion instead
-      if (spinHeld > 0 || projectionMode !== "orthographic") { spinEase = 0; return; }
+      if (spinHeld > 0 || projectionTransitioning || projectionMode !== "orthographic") { spinEase = 0; return; }
       const target = spinHover ? 0 : 1;
       const seconds = target < spinEase ? SPIN_STOP_SECONDS : SPIN_START_SECONDS;
       spinEase += (target - spinEase) * Math.min(1, dt / seconds);
@@ -747,28 +785,42 @@
     }
   }
   buildStrip(dots);
+  // Same easing as the globe: a pointer over the strip doesn't halt it
+  // outright, it coasts down to a full stop over about two seconds and winds
+  // back up just as gently. A finger on it stops dead — we don't fight a drag.
+  const STRIP_PX_PER_SEC = 45;      // ≈ the old 0.75 px/frame at 60fps
+  const STRIP_STOP_SECONDS = 2.0;   // hover: time constant of the slow-down
+  const STRIP_START_SECONDS = 1.9;  // leave: slower still, so it creeps back in
+  let stripEase = 1;         // 0–1 multiplier on the scroll rate
   let stripPaused = false;   // touch drag: stop fully so we don't fight the finger
-  let stripHover = false;    // pointer hover: just slow down
+  let stripHover = false;    // pointer hover: coast to a stop
   strip.addEventListener("pointerenter", () => { stripHover = true; });
   strip.addEventListener("pointerleave", () => { stripHover = false; });
   strip.addEventListener("touchstart", () => { stripPaused = true; }, { passive: true });
   strip.addEventListener("touchend", () => { setTimeout(() => { stripPaused = false; }, 2500); });
   const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   let acc = 0;
-  (function autoScroll() {
-    if (!stripPaused && !reducedMotion) {
-      acc += stripHover ? 0.45 : 0.75;
-      if (acc >= 1) {
-        strip.scrollLeft += Math.floor(acc);
-        acc -= Math.floor(acc);
-        if (strip.scrollLeft >= strip.scrollWidth / 2) {
-          const overshoot = strip.scrollLeft - strip.scrollWidth / 2;
-          buildStrip(shuffled(dots));
-          strip.scrollLeft = overshoot;
-        }
+  let stripLast = null;
+  (function autoScroll(now) {
+    requestAnimationFrame(autoScroll);
+    const dt = stripLast == null ? 0 : Math.min((now - stripLast) / 1000, 0.1);
+    stripLast = now;
+    if (!dt || reducedMotion) return;
+    if (stripPaused) { stripEase = 0; return; }
+    const target = stripHover ? 0 : 1;
+    const seconds = target < stripEase ? STRIP_STOP_SECONDS : STRIP_START_SECONDS;
+    stripEase += (target - stripEase) * Math.min(1, dt / seconds);
+    if (stripEase < 0.002) { stripEase = 0; return; }
+    acc += STRIP_PX_PER_SEC * stripEase * dt;
+    if (acc >= 1) {
+      strip.scrollLeft += Math.floor(acc);
+      acc -= Math.floor(acc);
+      if (strip.scrollLeft >= strip.scrollWidth / 2) {
+        const overshoot = strip.scrollLeft - strip.scrollWidth / 2;
+        buildStrip(shuffled(dots));
+        strip.scrollLeft = overshoot;
       }
     }
-    requestAnimationFrame(autoScroll);
   })();
 
   // stat tiles with count-up
