@@ -117,7 +117,7 @@
   [hidden] { display: none !important; }
   :root[data-details="hidden"] #airports,
   :root[data-details="hidden"] #stats { display: none !important; }
-  :root[data-details="hidden"] #contact { margin-top: 1rem; }
+  :root[data-details="hidden"] #site-footer { margin-top: 1rem; }
   svg { width: 100%; height: auto; display: block; cursor: grab; touch-action: pan-y pinch-zoom; }
   svg:active { cursor: grabbing; }
   #stats {
@@ -196,14 +196,16 @@
   @media (prefers-reduced-motion: reduce) {
     .splash-half { transition: none; }
   }
+  #site-footer {
+    margin-top: -1.4rem;
+    padding-bottom: 2.2rem;
+  }
   #contact {
     font-family: Georgia, "Times New Roman", serif;
     color: var(--ink-muted);
     font-size: 0.78rem;
     letter-spacing: 0.08em;
     text-decoration: none;
-    margin-top: -1.4rem;
-    padding-bottom: 2.2rem;
   }
   #contact:hover { color: var(--ink-2); text-decoration: underline; }
   #tooltip {
@@ -280,7 +282,7 @@
   <section id="clocks" aria-label="Local times"></section>
 </div>
 <div id="stats"></div>
-<a id="contact" href="mailto:bm@biermarkt.org">bm@biermarkt.org</a>
+<footer id="site-footer"><a id="contact" href="mailto:bm@biermarkt.org">bm@biermarkt.org</a></footer>
 <div id="tooltip"></div>
 <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3/dist/topojson-client.min.js"></script>
@@ -378,13 +380,14 @@
   ]);
 
   const W = 1200, H = 620;
+  const PROJECTION_PAD = 20;
   const svg = d3.select("#map").attr("viewBox", `0 0 ${W} ${H}`);
   function createProjection(mode) {
     return mode === "orthographic"
       // opens at ~98°W, just north of the equator
       ? d3.geoOrthographic().rotate([98, -10, 0]).clipAngle(90).precision(0.25)
-        .fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" })
-      : d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], { type: "Sphere" });
+        .fitExtent([[PROJECTION_PAD, PROJECTION_PAD], [W - PROJECTION_PAD, H - PROJECTION_PAD]], { type: "Sphere" })
+      : d3.geoNaturalEarth1().fitExtent([[PROJECTION_PAD, PROJECTION_PAD], [W - PROJECTION_PAD, H - PROJECTION_PAD]], { type: "Sphere" });
   }
   // Globe ⇄ flat map runs through a projection that is itself a blend of the
   // two: at alpha 0 it is the orthographic globe, at 1 the Natural Earth map,
@@ -581,11 +584,36 @@
     globeBackground.attr("transform", globeMode ? transform : null);
     globeOutline.attr("transform", globeMode ? transform : null);
   }
+  const GLOBE_CLOCK_GAP = 18;
+  function globeZoomLimit() {
+    const mapRect = svg.node().getBoundingClientRect();
+    const clockRects = [...document.querySelectorAll(".clock")]
+      .map(clock => clock.getBoundingClientRect());
+    if (!mapRect.width || !clockRects.length) return 1;
+
+    const centerX = mapRect.left + mapRect.width / 2;
+    const centerY = mapRect.top + mapRect.height / 2;
+    const nearestClock = Math.min(...clockRects.map(rect => {
+      const dx = Math.max(rect.left - centerX, 0, centerX - rect.right);
+      const dy = Math.max(rect.top - centerY, 0, centerY - rect.bottom);
+      return Math.hypot(dx, dy);
+    }));
+    const renderedRadius = projection.scale() * mapRect.width / W;
+    return Math.max(1, Math.min(16, (nearestClock - GLOBE_CLOCK_GAP) / renderedRadius));
+  }
+  function centeredGlobeTransform(transform) {
+    const safeScale = Math.min(transform.k, globeZoomLimit());
+    return d3.zoomIdentity
+      .translate(W / 2, H / 2)
+      .scale(safeScale)
+      .translate(-W / 2, -H / 2);
+  }
   const zoom = d3.zoom()
     // wheel zooms only when it carries ctrlKey — that is a trackpad pinch or
     // ctrl+wheel. A plain two-finger scroll falls through and scrolls the page.
     .filter(event => {
       if (projectionTransitioning) return false;
+      zoom.scaleExtent([1, projectionMode === "orthographic" ? globeZoomLimit() : 16]);
       if (event.type === "wheel") return event.ctrlKey;
       if (event.touches) return event.touches.length > 1;
       return projectionMode === "natural" && !event.button;
@@ -594,12 +622,18 @@
     .translateExtent([[0, 0], [W, H]])
     .on("start", () => stopGlide())
     .on("zoom", (event) => {
-      currentZoomTransform = event.transform;
-      k = event.transform.k;
-      root.attr("transform", event.transform);
-      syncProjectionLayers(event.transform);
+      currentZoomTransform = projectionMode === "orthographic"
+        ? centeredGlobeTransform(event.transform)
+        : event.transform;
+      k = currentZoomTransform.k;
+      root.attr("transform", currentZoomTransform);
+      syncProjectionLayers(currentZoomTransform);
       scaleMarks();
     });
+  window.addEventListener("resize", () => {
+    if (projectionMode !== "orthographic") return;
+    svg.call(zoom.transform, centeredGlobeTransform(currentZoomTransform));
+  });
   // Releasing a drag hands the globe its last velocity, which then bleeds off
   // under friction — degrees per millisecond, so the glide is frame-rate independent.
   let glideFrame = null;
