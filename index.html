@@ -118,12 +118,11 @@
   #projection-toggle[data-projection="orthographic"] .globe-icon { display: none; }
   #projection-toggle[data-projection="orthographic"] .map-icon { display: block; }
   [hidden] { display: none !important; }
-  /* Hide the airport strip WITHOUT collapsing it — the slot stays reserved so
-     toggling details never pushes the globe down. Stats sit below the globe, so
-     they still collapse (they only move the footer, not the globe). */
+  /* Hide the airport strip and stats WITHOUT collapsing them — their slots stay
+     reserved so toggling details shifts nothing: not the globe, not the footer
+     email. The footer keeps its constant margin (below) in both states. */
   :root[data-details="hidden"] #airports { visibility: hidden; }
-  :root[data-details="hidden"] #stats { display: none !important; }
-  :root[data-details="hidden"] #site-footer { margin-top: 1rem; }
+  :root[data-details="hidden"] #stats { visibility: hidden; }
   svg { width: 100%; height: auto; display: block; cursor: grab; touch-action: pan-y pinch-zoom; }
   svg:active { cursor: grabbing; }
   #stats {
