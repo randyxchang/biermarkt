@@ -55,6 +55,9 @@
     display: flex;
     gap: 0.45rem;
     overflow-x: auto;
+    /* min-height locks the reserved slot so the globe doesn't shift when the
+       chips finish loading or the strip is toggled (see visibility rule below) */
+    min-height: 2.6rem;
     padding: 1.1rem 1rem 0.4rem;
     scrollbar-width: none;
     -webkit-mask-image: linear-gradient(to right, transparent, black 4%, black 96%, transparent);
@@ -109,13 +112,16 @@
   :root[data-theme="light"] #theme-toggle .sun { display: none; }
   :root[data-theme="light"] #theme-toggle .moon { display: block; }
   #details-toggle { font-size: 0.95rem; font-weight: 700; }
-  #map-wrap { width: min(1200px, 100%); padding: 0 0.5rem; position: relative; }
+  #map-wrap { width: min(1200px, 100%); padding: 0 1.2rem; margin: 0.4rem 0 1.4rem; position: relative; }
   #projection-toggle svg { width: 16px; height: 16px; display: block; }
   #projection-toggle .map-icon { display: none; }
   #projection-toggle[data-projection="orthographic"] .globe-icon { display: none; }
   #projection-toggle[data-projection="orthographic"] .map-icon { display: block; }
   [hidden] { display: none !important; }
-  :root[data-details="hidden"] #airports,
+  /* Hide the airport strip WITHOUT collapsing it — the slot stays reserved so
+     toggling details never pushes the globe down. Stats sit below the globe, so
+     they still collapse (they only move the footer, not the globe). */
+  :root[data-details="hidden"] #airports { visibility: hidden; }
   :root[data-details="hidden"] #stats { display: none !important; }
   :root[data-details="hidden"] #site-footer { margin-top: 1rem; }
   svg { width: 100%; height: auto; display: block; cursor: grab; touch-action: pan-y pinch-zoom; }
@@ -158,17 +164,17 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: 0.1em;
   }
-  .clock:nth-child(1) { top: 0.4rem; left: 1.1rem; }
-  .clock:nth-child(2) { top: 0.4rem; right: 1.1rem; }
-  .clock:nth-child(3) { bottom: 0.4rem; left: 1.1rem; }
-  .clock:nth-child(4) { bottom: 0.4rem; right: 1.1rem; }
+  .clock:nth-child(1) { top: 0.4rem; left: 1.8rem; }
+  .clock:nth-child(2) { top: 0.4rem; right: 1.8rem; }
+  .clock:nth-child(3) { bottom: 0.4rem; left: 1.8rem; }
+  .clock:nth-child(4) { bottom: 0.4rem; right: 1.8rem; }
   .clock .s { font-size: 0.82em; opacity: 0.6; }
   @media (max-width: 640px) {
     .clock { font-size: 0.64rem; letter-spacing: 0.06em; }
     .clock:nth-child(1), .clock:nth-child(2) { top: 0.2rem; }
     .clock:nth-child(3), .clock:nth-child(4) { bottom: 0.2rem; }
-    .clock:nth-child(1), .clock:nth-child(3) { left: 0.6rem; }
-    .clock:nth-child(2), .clock:nth-child(4) { right: 0.6rem; }
+    .clock:nth-child(1), .clock:nth-child(3) { left: 1.3rem; }
+    .clock:nth-child(2), .clock:nth-child(4) { right: 1.3rem; }
   }
   #splash { position: fixed; inset: 0; z-index: 50; cursor: pointer; }
   .splash-half {
@@ -303,11 +309,11 @@
   syncThemeToggle();
 
   const detailsToggle = document.querySelector("#details-toggle");
-  const detailsTargets = [document.querySelector("#airports"), document.querySelector("#stats")];
   let detailsVisible = false;
   try { detailsVisible = localStorage.getItem("biermarkt-details") === "visible"; } catch (_) {}
   function syncDetails() {
-    detailsTargets.forEach(element => { element.hidden = !detailsVisible; });
+    // Hiding is driven entirely by the data-details attribute + CSS, so the
+    // airport strip can stay in flow (visibility:hidden) and hold its slot.
     document.documentElement.dataset.details = detailsVisible ? "visible" : "hidden";
     detailsToggle.setAttribute("aria-pressed", String(detailsVisible));
     detailsToggle.setAttribute("aria-label", `${detailsVisible ? "Hide" : "Show"} airport codes and statistics`);
